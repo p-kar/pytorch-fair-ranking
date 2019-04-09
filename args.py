@@ -16,7 +16,7 @@ def get_args():
     # DataLoader
     parser.add_argument('--data_dir', default='./data', type=str, help='root directory of the dataset')
     parser.add_argument('--nworkers', default=4, type=int, help='number of data loading workers')
-    parser.add_argument('--bsize', default=32, type=int, help='mini-batch size')
+    parser.add_argument('--bsize', default=64, type=int, help='mini-batch size')
     parser.add_argument('--shuffle', default='True', type=str2bool, help='shuffle the data?')
 
     # Model Parameters
