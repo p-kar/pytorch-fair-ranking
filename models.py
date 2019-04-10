@@ -75,6 +75,60 @@ class SSEBase(nn.Module):
         # b x (hidden_size * 4)
         return out
 
+class BiLSTMBase(nn.Module):
+    """
+    Simple sentence encoder using a BiLSTM
+    """
+    def __init__(self, hidden_size, dropout_p, glove_loader):
+        super(BiLSTMBase, self).__init__()
+
+        word_vectors = glove_loader.word_vectors
+        word_vectors = np.vstack(word_vectors)
+        vocab_size = word_vectors.shape[0]
+        embed_size = word_vectors.shape[1]
+
+        self.embedding = nn.Embedding(vocab_size, embed_size)
+        self.embedding.load_state_dict({'weight': torch.Tensor(word_vectors)})
+        
+        self.encoder = nn.Sequential( \
+            nn.Dropout(p=dropout_p), \
+            nn.LSTM(input_size=embed_size, hidden_size=hidden_size, num_layers=1, bidirectional=True))
+
+    def forward(self, s, len_s):
+        """
+        Args:
+            s: Tokenized sentence (b x L)
+            len_s: Sentence length (b)
+        Output:
+            out: Output vector with concatenated avg. and max. pooled
+                sentence encoding (b x (hidden_size * 4))
+        """
+        batch_size = s.shape[0]
+        maxlen = s.shape[1]
+
+        s = self.embedding(s).transpose(0, 1)
+        # L x b x embed_size
+        h, _ = self.encoder(s)
+        v = torch.transpose(h, 0, 1)
+        # b x L x (hidden_size * 2)
+
+        mask = torch.arange(0, maxlen).expand(batch_size, maxlen)
+        if torch.cuda.is_available():
+            mask = mask.cuda()
+        mask = mask < len_s.unsqueeze(-1)
+        mask = mask.float()
+
+        v_avg = torch.sum(torch.mul(v, mask.unsqueeze(-1)), dim=1)
+        v_avg = torch.div(v_avg, torch.sum(mask, dim=1).unsqueeze(-1))
+        # b x (hidden_size * 2)
+        v_max = torch.max(torch.mul(v, mask.unsqueeze(-1)), dim=1)[0]
+        # b x (hidden_size * 2)
+
+        out = torch.cat((v_avg, v_max), dim=1)
+        # b x (hidden_size * 4)
+        return out
+
+
 class SSEClassifier(nn.Module):
     """Classifier on top of the Shortcut-stacked encoder"""
     def __init__(self, hidden_size, dropout_p, glove_loader, xavier_init=True):
@@ -87,7 +141,7 @@ class SSEClassifier(nn.Module):
         """
         super(SSEClassifier, self).__init__()
 
-        self.encoder = SSEBase(hidden_size, dropout_p, glove_loader)
+        self.encoder = BiLSTMBase(hidden_size, dropout_p, glove_loader)
 
         # prediction layer for the sentiment analysis task
         self.sent_pred = nn.Sequential( \
