@@ -1,3 +1,4 @@
+import json
 import scrapy
 import urllib.parse
 from scrapy import Request
@@ -8,11 +9,15 @@ class MovieSpider(CrawlSpider):
     base_url = 'https://wwww.rottentomatoes.com'
     name = 'rottentomatoes.com'
     allowed_domains = ['rottentomatoes.com']
-    with open('movie_urls.txt', 'r') as f:
-        start_url = [url.strip() for url in f.readlines()]
 
     def start_requests(self):
-        return [Request(s_url, self.parse_item) for s_url in self.start_url]
+        with open('movie_urls.json', 'r') as f:
+            start_url = [d['url'] for d in json.load(f)]
+        with open('movie_urls.txt', 'r') as f:
+            start_url.extend([url.strip() for url in f.readlines()])
+        start_url = list(set(start_url))
+        self.logger.info('Found {} movies'.format(len(start_url)))
+        return [Request(s_url, self.parse_item) for s_url in start_url]
 
     def parse_item(self, response):
         self.logger.info('Movie page: %s', response.url)
@@ -100,7 +105,7 @@ class MovieSpider(CrawlSpider):
         item['cast'] = cast
 
         # Top critics URL
-        critics_url = response.selector.xpath('//a[@class="criticHeadersLink small unstyled subtle articleLink" and contains(@href, "top_critics")]/@href').get().strip()
+        critics_url = response.selector.xpath('//a[@class="criticHeadersLink small unstyled subtle articleLink" and contains(@href, "top_critics")]/@href').get()
         if critics_url is None:
             item['reviews'] = []
             yield item
