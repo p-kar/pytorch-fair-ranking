@@ -102,13 +102,13 @@ class MovieSpider(CrawlSpider):
             cast_page_url = urllib.parse.urljoin(self.base_url, cast_page_url)
             cast_name = cast_sel.xpath('.//div[@class="media-body"]/a/span/text()').get().strip()
             cast.append({'cast_name': cast_name, 'cast_page_url': cast_page_url})
-        item['cast'] = cast
+        item['cast'] = cast[:10]
 
         # Top critics URL
         critics_url = response.selector.xpath('//a[@class="criticHeadersLink small unstyled subtle articleLink" and contains(@href, "top_critics")]/@href').get()
         if critics_url is None:
             item['reviews'] = []
-            yield item
+            return None
         else:
             critics_url = urllib.parse.urljoin(self.base_url, critics_url.strip())
             request = Request(url=critics_url, callback=self.parse_critics)
