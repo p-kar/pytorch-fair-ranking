@@ -39,6 +39,11 @@ class SSEBase(nn.Module):
             nn.Dropout(p=dropout_p), \
             nn.LSTM(input_size=embed_size + 4*hidden_size, hidden_size=hidden_size, num_layers=1, bidirectional=True))
 
+        self.linear = nn.Sequential( \
+            nn.Dropout(p=dropout_p), \
+            nn.Linear(hidden_size * 4, hidden_size), \
+            nn.ReLU())
+
     def forward(self, s, len_s):
         """
         Args:
@@ -46,7 +51,7 @@ class SSEBase(nn.Module):
             len_s: Sentence length (b)
         Output:
             out: Output vector with concatenated avg. and max. pooled
-                sentence encoding (b x (hidden_size * 4))
+                sentence encoding (b x hidden_size)
         """
         batch_size = s.shape[0]
         maxlen = s.shape[1]
@@ -73,6 +78,8 @@ class SSEBase(nn.Module):
 
         out = torch.cat((v_avg, v_max), dim=1)
         # b x (hidden_size * 4)
+        out = self.linear(out)
+        # b x hidden_size
         return out
 
 class BiLSTMBase(nn.Module):
@@ -94,6 +101,11 @@ class BiLSTMBase(nn.Module):
             nn.Dropout(p=dropout_p), \
             nn.LSTM(input_size=embed_size, hidden_size=hidden_size, num_layers=1, bidirectional=True))
 
+        self.linear = nn.Sequential( \
+            nn.Dropout(p=dropout_p), \
+            nn.Linear(hidden_size * 4, hidden_size), \
+            nn.ReLU())
+
     def forward(self, s, len_s):
         """
         Args:
@@ -101,7 +113,7 @@ class BiLSTMBase(nn.Module):
             len_s: Sentence length (b)
         Output:
             out: Output vector with concatenated avg. and max. pooled
-                sentence encoding (b x (hidden_size * 4))
+                sentence encoding (b x hidden_size)
         """
         batch_size = s.shape[0]
         maxlen = s.shape[1]
@@ -126,6 +138,8 @@ class BiLSTMBase(nn.Module):
 
         out = torch.cat((v_avg, v_max), dim=1)
         # b x (hidden_size * 4)
+        out = self.linear(out)
+        # b x hidden_size
         return out
 
 
@@ -145,9 +159,6 @@ class SSEClassifier(nn.Module):
 
         # prediction layer for the sentiment analysis task
         self.sent_pred = nn.Sequential( \
-            nn.Dropout(p=dropout_p), \
-            nn.Linear(hidden_size * 4, hidden_size), \
-            nn.ReLU(), \
             nn.Dropout(p=dropout_p), \
             nn.Linear(hidden_size, 2))
 
