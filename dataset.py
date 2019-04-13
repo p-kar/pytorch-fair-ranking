@@ -22,7 +22,7 @@ def read_review_file(fname):
     samples = []
     for line in content:
         if len(line) == 2:
-            review = word_tokenize(line[0], preserve_line=True)
+            review = word_tokenize(line[0].lower(), preserve_line=True)
             label = 0 if line[1] == 'rotten' else 1
             samples.append([review, label])
     return samples
