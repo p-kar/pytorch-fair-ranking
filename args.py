@@ -20,9 +20,11 @@ def get_args():
     parser.add_argument('--shuffle', default='True', type=str2bool, help='shuffle the data?')
 
     # Model Parameters
+    parser.add_argument('--enc_arch', default='bilstm', type=str, help='sentence encoder arch [bilstm | sse]')
     parser.add_argument('--maxlen', default=60, type=int, help='max length of the sentence')
     parser.add_argument('--dropout_p', default=0.1, type=float, help='dropout probability')
     parser.add_argument('--hidden_size', default=200, type=int, help='hidden layer size')
+    parser.add_argument('--pretrained_base', default=None, type=str, help='Path to the pretrained sentiment analysis model')
 
     # Optimization Parameters
     parser.add_argument('--optim', default='adam', type=str, help='optimizer type')

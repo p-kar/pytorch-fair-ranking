@@ -143,27 +143,31 @@ class BiLSTMBase(nn.Module):
         return out
 
 
-class SSEClassifier(nn.Module):
-    """Classifier on top of the Shortcut-stacked encoder"""
-    def __init__(self, hidden_size, dropout_p, glove_loader, xavier_init=True):
+class Classifier(nn.Module):
+    """Classifier on top of the sentence encoder"""
+    def __init__(self, hidden_size, dropout_p, glove_loader, enc_arch):
         """
         Args:
             hidden_size: Size of the intermediate linear layers
             dropout_p: Dropout probability for intermediate dropout layers
             glove_loader: GLoVe embedding loader
-            xavier_init: Initialise network using Xavier init
+            enc_arch: Sentence encoder architecture [bilstm | sse]
         """
-        super(SSEClassifier, self).__init__()
+        super(Classifier, self).__init__()
 
-        self.encoder = BiLSTMBase(hidden_size, dropout_p, glove_loader)
+        if enc_arch == 'bilstm':
+            self.encoder = BiLSTMBase(hidden_size, dropout_p, glove_loader)
+        elif enc_arch == 'sse':
+            self.encoder = SSEBase(hidden_size, dropout_p, glove_loader)
+        else:
+            raise NotImplementedError('unknown sentence encoder')
 
         # prediction layer for the sentiment analysis task
         self.sent_pred = nn.Sequential( \
             nn.Dropout(p=dropout_p), \
             nn.Linear(hidden_size, 2))
 
-        if xavier_init:
-            self.reset_parameters()
+        self.reset_parameters()
 
     def reset_parameters(self):
         """Initialize network weights using Xavier init (with bias 0.01)"""
@@ -176,8 +180,103 @@ class SSEClassifier(nn.Module):
             s_len: Sentence length (b)
         """
         v = self.encoder(s, s_len)
-        # b x L x (hidden_size * 4)
+        # b x hidden_size
         out = self.sent_pred(v)
         # b x 2
         return out
+
+class RankNet(nn.Module):
+    """Rank net on top of the sentence encoder"""
+    def __init__(self, hidden_size, dropout_p, glove_loader, enc_arch, num_genres, pretrained_base=None):
+        """
+        Args:
+            hidden_size: Size of the intermediate linear layers
+            dropout_p: Dropout probability for intermediate dropout layers
+            glove_loader: GLoVe embedding loader
+            enc_arch: Sentence encoder architecture [bilstm | sse]
+            num_genres: Number of movie genres
+            pretrained_base: Path to the pretrained model
+        """
+        super(RankNet, self).__init__()
+
+        if enc_arch == 'bilstm':
+            self.encoder = BiLSTMBase(hidden_size, dropout_p, glove_loader)
+        elif enc_arch == 'sse':
+            self.encoder = SSEBase(hidden_size, dropout_p, glove_loader)
+        else:
+            raise NotImplementedError('unknown sentence encoder')
+
+        self.drop = nn.Dropout(p=dropout_p)
+        self.rank_layer = nn.Linear(hidden_size + num_genres, 1)
+        self.reset_parameters()
+
+        if pretrained_base is not None:
+            raise NotImplementedError()
+
+    def reset_parameters(self):
+        """Initialize network weights using Xavier init (with bias 0.01)"""
+        self.apply(ixvr)
+
+    def forward(self, s, s_len, genres):
+        """
+        Args:
+            s: Tokenized sentence (b x L)
+            s_len: Sentence length (b)
+            genres: One hot encoding for the genre (b x num_genres)
+        Output:
+            out: Ranking scores (b x 1)
+        """
+        v = self.drop(self.encoder(s, s_len))
+        # b x hidden_size
+        v = torch.cat((v, genres), dim=1)
+        # b x (hidden_size + num_genres)
+        out = self.rank_layer(v)
+        # b x 1
+        return out
+
+    def train_forward(self, s, s_len, genres, order):
+        """
+        Args:
+            s: Tokenized sentence (b x L)
+            s_len: Sentence length (b)
+            genres: One hot encoding for the genre (b x num_genres)
+            order: GT ranking order (b)
+        Output:
+            out: Ranking scores (b)
+            loss: Ranknet loss
+        """
+        out = self.forward(s, s_len, genres).view(-1)
+        loss = self.ranknet_loss(out, order)
+
+        return out, loss
+
+    def ranknet_loss(self, scores, order):
+        """
+        Args:
+            scores: normalization scores should be detached from the
+                computation graph (b)
+            order: GT ranking order (b)
+        Output:
+            loss: RankNet loss
+        """
+        out = scores
+        scores = scores.detach()
+        batch_size = scores.shape[0]
+        device = torch.device('cuda' if next(self.parameters()).is_cuda else 'cpu')
+
+        s_i = torch.ones(batch_size, batch_size).to(device) * scores.view(1, -1)
+        # b x b
+        s_j = torch.ones(batch_size, batch_size).to(device) * scores.view(-1, 1)
+        # b x b
+        d = s_i - s_j
+        # b x b
+        P_ij = torch.triu(torch.ones(batch_size, batch_size), diagonal=1).to(device)[order,:][:,order]
+        # b x b
+        lambda_ij = torch.sigmoid(d) - P_ij
+        # b x b
+        lambda_i = lambda_ij.sum(dim=1) - lambda_ij.sum(dim=0)
+        # b
+        loss = torch.mul(lambda_i, out).mean()
+
+        return loss
 
