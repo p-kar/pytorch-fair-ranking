@@ -35,9 +35,6 @@ class SSEBase(nn.Module):
         self.encoder2 = nn.Sequential( \
             nn.Dropout(p=dropout_p), \
             nn.LSTM(input_size=embed_size + 2*hidden_size, hidden_size=hidden_size, num_layers=1, bidirectional=True))
-        self.encoder3 = nn.Sequential( \
-            nn.Dropout(p=dropout_p), \
-            nn.LSTM(input_size=embed_size + 4*hidden_size, hidden_size=hidden_size, num_layers=1, bidirectional=True))
 
         self.linear = nn.Sequential( \
             nn.Dropout(p=dropout_p), \
@@ -60,8 +57,7 @@ class SSEBase(nn.Module):
         # L x b x embed_size
         h1, _ = self.encoder1(s)
         h2, _ = self.encoder2(torch.cat((s, h1), dim=2))
-        h3, _ = self.encoder3(torch.cat((s, h1, h2), dim=2))
-        v = torch.transpose(h3, 0, 1)
+        v = torch.transpose(h2, 0, 1)
         # b x L x (hidden_size * 2)
 
         mask = torch.arange(0, maxlen).expand(batch_size, maxlen)
