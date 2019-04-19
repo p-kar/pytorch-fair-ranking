@@ -2,7 +2,7 @@ import os
 import pdb
 import subprocess as sp
 
-OUTPUT_ROOT='/scratch/cluster/pkar/pytorch-fair-ranking/runs/train_sentiment'
+OUTPUT_ROOT='/scratch/cluster/pkar/pytorch-fair-ranking/runs/train_sentiment_sse'
 SCRIPT_ROOT='/scratch/cluster/pkar/pytorch-fair-ranking/scripts'
 
 mapping_dict = {
@@ -18,14 +18,16 @@ mapping_dict = {
     '__NWORKERS__': '4',
     '__BSIZE__': '64',
     '__SHUFFLE__': 'True',
+    '__ENC_ARCH__': 'sse',
     '__MAXLEN__': '60',
-    '__DROPOUT_P__': '0.1',
-    '__HIDDEN_SIZE__': '200',
+    '__DROPOUT_P__': '0.4',
+    '__HIDDEN_SIZE__': '100',
+    '__PRETRAINED_BASE__': 'none',
     '__OPTIM__': 'adam',
     '__LR__': ['2e-3', '6e-4', '2e-4'],
-    '__WD__': '4e-5',
+    '__WD__': '5e-4',
     '__MOMENTUM__': '0.9',
-    '__EPOCHS__': '200',
+    '__EPOCHS__': '30',
     '__MAX_NORM__': '1',
     '__START_EPOCH__': '0',
     '__LOG_ITER__': '100',

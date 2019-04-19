@@ -7,9 +7,11 @@ python -u $code_root/driver.py \
 	--nworkers __NWORKERS__ \
 	--bsize __BSIZE__ \
 	--shuffle __SHUFFLE__ \
-	--maxlen __MAXLEN__ \
+    --enc_arch __ENC_ARCH__ \
+    --maxlen __MAXLEN__ \
 	--dropout_p __DROPOUT_P__ \
 	--hidden_size __HIDDEN_SIZE__ \
+    --pretrained_base __PRETRAINED_BASE__ \
 	--optim __OPTIM__ \
 	--lr __LR__ \
 	--wd __WD__ \

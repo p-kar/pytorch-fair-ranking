@@ -25,18 +25,17 @@ from dataset import RankSampler, RottenTomatoesRankingDataset, rank_collate_func
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-def calculate_dcg(scores, gt_scores):
+def calculate_dcg(order, gt_scores):
     """
     Args:
-        scores: Ranking scores produced by the model (b)
+        order: Ranking order (b)
         gt_scores: GT tomatometer scores
     Output:
         dcg: Discounted cumulative gain for the ranking
     """
-    n = scores.shape[0]
-    _, order = torch.sort(scores, descending=True)
+    n = order.shape[0]
     gt_scores = gt_scores[order]
-    gt_scores = gt_scores / torch.max(gt_scores)
+    # gt_scores = gt_scores / torch.max(gt_scores)
     v = 1.0 / torch.log2(torch.arange(n).double() + 2.0).to(device)
     dcg = torch.dot(gt_scores, v)
 
@@ -46,9 +45,9 @@ def run_iter(opts, data, model):
     s, s_len = data['sent'].to(device), data['sent_len'].to(device)
     genres, order = data['genre'].to(device), data['order'].to(device)
     scores = data['score'].to(device)
-
+    
     out, loss = model.train_forward(s, s_len, genres, order)
-    dcg = calculate_dcg(out, scores)
+    dcg = calculate_dcg(torch.sort(out, descending=True)[1], scores)
 
     return dcg, loss
 
@@ -58,19 +57,31 @@ def evaluate(opts, model, loader):
     time_start = time.time()
     val_loss = 0.0
     val_dcg = 0.0
+    val_best_dcg = 0.0
+    val_rand_dcg = 0.0
     num_batches = 0.0
 
     with torch.no_grad():
         for batch_idx, data in enumerate(loader):
 
             dcg, loss = run_iter(opts, data, model)
+            scores = data['score'].to(device)
+            best_dcg = calculate_dcg(torch.sort(scores, descending=True)[1], scores)
+            rand_dcg = calculate_dcg(torch.randperm(scores.shape[0]).to(device), scores)
             val_loss += loss.data.cpu().item()
             val_dcg += dcg
+            val_best_dcg += best_dcg
+            val_rand_dcg += rand_dcg
             num_batches += 1
 
     avg_valid_loss = val_loss / num_batches
     avg_valid_dcg = val_dcg / num_batches
+    avg_valid_best_dcg = val_best_dcg / num_batches
+    avg_valid_rand_dcg = val_rand_dcg / num_batches
     time_taken = time.time() - time_start
+
+    print('Validation Best DCG: {:.5f}'.format(avg_valid_best_dcg.data.cpu().item()))
+    print('Validation Rand DCG: {:.5f}'.format(avg_valid_rand_dcg.data.cpu().item()))
 
     return avg_valid_loss, avg_valid_dcg, time_taken
 
@@ -89,8 +100,9 @@ def train_rank(opts):
         num_genres=len(train_dataset.genres), pretrained_base=opts.pretrained_base)
 
     if opts.optim == 'adam':
-        # raise NotImplementedError('update LR')
-        optimizer = torch.optim.Adam(model.parameters(), lr=opts.lr, weight_decay=opts.wd)
+        optimizer = torch.optim.Adam([
+            {'params': model.encoder.parameters(), 'lr': opts.lr / 10.0},
+            {'params': model.rank_layer.parameters()}], lr=opts.lr, weight_decay=opts.wd)
     else:
         raise NotImplementedError("Unknown optim type")
 

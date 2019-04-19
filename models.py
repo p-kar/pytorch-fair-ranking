@@ -207,7 +207,11 @@ class RankNet(nn.Module):
         self.reset_parameters()
 
         if pretrained_base is not None:
-            raise NotImplementedError()
+            state_dict = torch.load(pretrained_base, map_location='cpu')['state_dict']
+            model_dict = self.state_dict()
+            state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
+            model_dict.update(state_dict)
+            self.load_state_dict(model_dict)
 
     def reset_parameters(self):
         """Initialize network weights using Xavier init (with bias 0.01)"""
