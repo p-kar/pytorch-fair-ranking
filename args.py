@@ -25,6 +25,7 @@ def get_args():
     parser.add_argument('--dropout_p', default=0.1, type=float, help='dropout probability')
     parser.add_argument('--hidden_size', default=200, type=int, help='hidden layer size')
     parser.add_argument('--pretrained_base', default=None, type=str, help='Path to the pretrained sentiment analysis model')
+    parser.add_argument('--loss_type', default='ranknet', type=str, help='Ranking loss to use')
 
     # Optimization Parameters
     parser.add_argument('--optim', default='adam', type=str, help='optimizer type')

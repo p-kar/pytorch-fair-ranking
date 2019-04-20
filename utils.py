@@ -73,3 +73,33 @@ def ixvr(input_layer, bias_val=0.01):
             nn.init.constant_(input_layer.bias, bias_val);
 
     return input_layer
+
+def calculate_dcg(order, gt_scores):
+    """
+    Args:
+        order: Ranking order (b)
+        gt_scores: GT tomatometer scores
+    Output:
+        dcg: Discounted cumulative gain for the ranking
+    """
+    device = torch.device('cuda' if order.is_cuda else 'cpu')
+    n = order.shape[0]
+    gt_scores = gt_scores[order].float()
+    v = 1.0 / torch.log2(torch.arange(n).float() + 2.0).to(device)
+    dcg = torch.dot(gt_scores, v)
+
+    return dcg
+
+def calculate_ndcg(order, gt_scores):
+    """
+    Args:
+        order: Ranking order (b)
+        gt_scores: GT tomatometer scores
+    Output:
+        ndcg: Normalized discounted cumulative gain for the ranking
+    """
+    dcg = calculate_dcg(order, gt_scores)
+    max_dcg = calculate_dcg(torch.sort(gt_scores, descending=True)[1], gt_scores)
+
+    return dcg / max_dcg
+

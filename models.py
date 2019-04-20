@@ -183,7 +183,7 @@ class Classifier(nn.Module):
 
 class RankNet(nn.Module):
     """Rank net on top of the sentence encoder"""
-    def __init__(self, hidden_size, dropout_p, glove_loader, enc_arch, num_genres, pretrained_base=None):
+    def __init__(self, hidden_size, dropout_p, glove_loader, enc_arch, num_genres, pretrained_base=None, loss_type='ranknet'):
         """
         Args:
             hidden_size: Size of the intermediate linear layers
@@ -192,6 +192,7 @@ class RankNet(nn.Module):
             enc_arch: Sentence encoder architecture [bilstm | sse]
             num_genres: Number of movie genres
             pretrained_base: Path to the pretrained model
+            loss_type: Use RankNet or LambdaRank loss ['ranknet' | 'lambdarank']
         """
         super(RankNet, self).__init__()
 
@@ -201,6 +202,9 @@ class RankNet(nn.Module):
             self.encoder = SSEBase(hidden_size, dropout_p, glove_loader)
         else:
             raise NotImplementedError('unknown sentence encoder')
+
+        assert loss_type in ['ranknet', 'lambdarank']
+        self.loss_type = loss_type
 
         self.drop = nn.Dropout(p=dropout_p)
         self.rank_layer = nn.Linear(hidden_size + num_genres, 1)
@@ -234,28 +238,31 @@ class RankNet(nn.Module):
         # b x 1
         return out
 
-    def train_forward(self, s, s_len, genres, order):
+    def train_forward(self, s, s_len, genres, gt_order, gt_scores):
         """
         Args:
             s: Tokenized sentence (b x L)
             s_len: Sentence length (b)
             genres: One hot encoding for the genre (b x num_genres)
-            order: GT ranking order (b)
+            gt_order: Ground truth ranking order (b)
+            gt_scores: Ground truth relevance scores, only required for LambdaRank (b)
         Output:
             out: Ranking scores (b)
             loss: Ranknet loss
         """
         out = self.forward(s, s_len, genres).view(-1)
-        loss = self.ranknet_loss(out, order)
+        if self.loss_type == 'ranknet':
+            loss = self.ranknet_loss(out, gt_order)
+        elif self.loss_type == 'lambdarank':
+            loss = self.lambdarank_loss(out, gt_order, gt_scores)
 
         return out, loss
 
-    def ranknet_loss(self, scores, order):
+    def ranknet_loss(self, scores, gt_order):
         """
         Args:
-            scores: normalization scores should be detached from the
-                computation graph (b)
-            order: GT ranking order (b)
+            scores: ranking scores (b)
+            gt_order: Ground truth ranking gt_order (b)
         Output:
             loss: RankNet loss
         """
@@ -270,9 +277,47 @@ class RankNet(nn.Module):
         # b x b
         d = s_i - s_j
         # b x b
-        P_ij = torch.triu(torch.ones(batch_size, batch_size), diagonal=1).to(device)[order,:][:,order]
+        P_ij = torch.triu(torch.ones(batch_size, batch_size), diagonal=1).to(device)[gt_order,:][:,gt_order]
         # b x b
         lambda_ij = torch.sigmoid(d) - P_ij
+        # b x b
+        lambda_i = lambda_ij.sum(dim=1) - lambda_ij.sum(dim=0)
+        # b
+        loss = torch.mul(lambda_i, out).mean()
+
+        return loss
+
+    def lambdarank_loss(self, scores, gt_order, gt_scores):
+        """
+        Args:
+            scores: ranking scores (b)
+            gt_order: Ground truth ranking order (b)
+            gt_scores: Ground truth relevance scores (b)
+        Output:
+            loss: LambdaRank loss
+        """
+        out = scores
+        scores = scores.detach()
+        batch_size = scores.shape[0]
+        device = torch.device('cuda' if next(self.parameters()).is_cuda else 'cpu')
+
+        s_i = torch.ones(batch_size, batch_size).to(device) * scores.view(1, -1)
+        # b x b
+        s_j = torch.ones(batch_size, batch_size).to(device) * scores.view(-1, 1)
+        # b x b
+        d = s_i - s_j
+        # b x b
+        P_ij = torch.triu(torch.ones(batch_size, batch_size), diagonal=1).to(device)[gt_order,:][:,gt_order]
+        # b x b
+        _, pred_order = torch.sort(scores, descending=True)
+        max_dcg = calculate_dcg(gt_order, gt_scores)
+        dcg_ij_1 = scores.view(-1, 1) / torch.log2(2.0 + pred_order.float()).view(1, -1)
+        dcg_ij_2 = scores.view(1, -1) / torch.log2(2.0 + pred_order.float()).view(-1, 1)
+        dcg_ij = dcg_ij_1 + dcg_ij_2
+        dcg_ii = scores / torch.log2(2.0 + pred_order.float())
+        dcg_ii = dcg_ii.view(-1, 1) + dcg_ii.view(1, -1)
+        delta_dcg = (dcg_ii - dcg_ij) / max_dcg
+        lambda_ij = (torch.sigmoid(d) - P_ij) * delta_dcg
         # b x b
         lambda_i = lambda_ij.sum(dim=1) - lambda_ij.sum(dim=0)
         # b
