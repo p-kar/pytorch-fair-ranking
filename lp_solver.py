@@ -7,17 +7,31 @@ from birkhoff import birkhoff_von_neumann_decomposition
 import timeit
 
 
-def lp_solver(u,constraint):
+def lp_solver(u,Gr,constraint):
 
     N = len(u)
     v = np.log(2) / np.log(np.arange(N) + 2.0)
 
     if constraint == 'DemoParity':
-        f = np.array([1.0, 1.0, 1.0,1.0, 1.0, 1.0,1.0, 1.0, 1.0,1.0, -1.0, -1.0, -1.0,-1.0, -1.0, -1.0,-1.0, -1.0, -1.0,-0.1]) / 3.0
-    elif constraint == 'DispTreat': 
-        f = np.array([1/u[:3].sum(), 1/u[:3].sum(), 1/u[:3].sum(), -1/u[3:].sum(), -1/u[3:].sum(), -1/u[3:].sum()]) / 3
-    elif constraint == 'DispImpact':
-        f = np.array([u[0]/u[:3].sum(), u[1]/u[:3].sum(), u[2]/u[:3].sum(), -1*u[3]/u[3:].sum(), -1*u[4]/u[3:].sum(), -1*u[5]/u[3:].sum()]) / 3
+        #f = np.array([1.0, 1.0, 1.0, -1.0, -1.0, -1.0]) / 10
+        f = Gr/(N/2)
+    else:
+	f = Gr.astype(float)
+        pos_indices = np.where(Gr == 1)
+        neg_indices = np.where(Gr == -1)
+        #Group1 Group2 sum
+        G1_sum = u[pos_indices].sum()
+        G2_sum = u[neg_indices].sum()
+    	if constraint == 'DispTreat': 
+    	    #f = np.array([1/u[:3].sum(), 1/u[:3].sum(), 1/u[:3].sum(), -1/u[3:].sum(), -1/u[3:].sum(), -1/u[3:].sum()]) / 3     
+    	    f[pos_indices] = f[pos_indices]/G1_sum
+    	    f[neg_indices] = f[neg_indices]/G2_sum
+    	    f = f/(N/2)
+    	elif constraint == 'DispImpact':
+    	    #f = np.array([u[0]/u[:3].sum(), u[1]/u[:3].sum(), u[2]/u[:3].sum(), -1*u[3]/u[3:].sum(), -1*u[4]/u[3:].sum(), -1*u[5]/u[3:].sum()]) / 3
+    	    f[pos_indices] = f[pos_indices]*u[pos_indices]/G1_sum
+    	    f[neg_indices] = f[neg_indices]*u[neg_indices]/G1_sum
+    	    f = f/(N/2)##################
     g = np.array(v)
 
     P = [list([]) for i in range(N)]
@@ -77,6 +91,8 @@ def lp_solver(u,constraint):
     return dcg, result_per, result_coeff, per_count
 
 if __name__ == "__main__":
-    constraint  = 'DemoParity'
-    u = np.array([0.81, 0.80, 0.79, 0.78, 0.77, 0.76, 0.81, 0.80, 0.79, 0.78, 0.77, 0.76,0.81, 0.80, 0.79, 0.78, 0.77, 0.76,0.77,0.76])
-    dcg, result_per, result_coeff, per_count = lp_solver(u,constraint)
+    constraint  = 'DispImpact'
+    u = np.array([0.81, 0.80, 0.79, 0.78, 0.77, 0.76])
+    g = np.array([-1,1,1,1,-1,-1])
+    dcg, result_per, result_coeff, per_count = lp_solver(u,g,constraint)
+    print (dcg, result_per, result_coeff, per_count)
