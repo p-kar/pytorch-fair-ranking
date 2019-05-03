@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from utils import *
 from models import RankNet
 from logger import TensorboardXLogger
-from dataset import RankSampler, RottenTomatoesRankingDataset, rank_collate_func
+from dataset import RankSampler, RottenTomatoesRankingDataset, rank_collate_func,rank_lp_func
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
@@ -70,11 +70,11 @@ def train_rank(opts):
     glove_loader = GloveLoader(os.path.join(opts.data_dir, 'glove', opts.glove_emb_file))
     train_dataset = RottenTomatoesRankingDataset(opts.data_dir, 'train', glove_loader, opts.maxlen)
     train_loader = DataLoader(train_dataset, batch_size=opts.bsize, sampler=RankSampler(train_dataset), \
-        collate_fn=rank_collate_func, num_workers=opts.nworkers)
+        collate_fn=rank_lp_func, num_workers=opts.nworkers)
 
     valid_dataset = RottenTomatoesRankingDataset(opts.data_dir, 'val', glove_loader, opts.maxlen)
     valid_loader = DataLoader(valid_dataset, batch_size=opts.bsize, sampler=RankSampler(valid_dataset), \
-        collate_fn=rank_collate_func, num_workers=opts.nworkers)
+        collate_fn=rank_lp_func, num_workers=opts.nworkers)
     model = RankNet(opts.hidden_size, opts.dropout_p, glove_loader, opts.enc_arch, \
         num_genres=len(train_dataset.genres), pretrained_base=opts.pretrained_base, loss_type=opts.loss_type)
 
