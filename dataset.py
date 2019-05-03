@@ -11,7 +11,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 from torch.utils.data.dataloader import default_collate
-
+from lp_solver import lp_solver_func
 def read_review_file(fname):
     """
     Args:
@@ -219,9 +219,31 @@ def rank_collate_func(batches):
     fairness constraint
     """
     batch = [item for b in batches for item in b]
+    #print (len(batch))#.shape)
     ret_dict = default_collate(batch)
     _, order = torch.sort(ret_dict['score'], descending=True)
     ret_dict['order'] = order
     return ret_dict
 
-
+def rank_lp_func(batches):
+    """
+    Calculates rank based on the lp constraints
+    """
+    constraint = 'DemoParity'
+    batch = [item for b in batches for item in b]
+    ret_dict = default_collate(batch)
+    genre = ret_dict['genre']
+    Gr = genre[:,0]
+    Gr[Gr == 0] = -1
+    Gr_1 = np.where(Gr == 1)
+    Gr_1_ = np.where(Gr == -1)
+    #print("genre 1:", Gr_1)
+    #print("genre -1:", Gr_1_)
+    scores = ret_dict['score'].numpy()
+    #print (scores.shape)
+    Gr = Gr.numpy()
+    dcg, result_per, result_coeff, per_count = lp_solver_func(scores,Gr,constraint)
+    #print (dcg, result_per, result_coeff, per_count)
+    _, order = torch.sort(ret_dict['score'], descending=True)
+    ret_dict['order'] = order
+    return ret_dict
