@@ -3,7 +3,7 @@ import time
 import numpy as np
 import pulp
 from pulp import *
-from birkhoff import birkhoff_von_neumann_decomposition
+# from birkhoff import birkhoff_von_neumann_decomposition
 import timeit
 #import torch
 import pdb
@@ -95,17 +95,17 @@ def lp_solver_func(u,Gr,constraint):
     #print ("Pvals:", Pvals)
     #print ("Pvals shape:",np.sum(Pvals,axis = 0))
     #print ("Pvals sums;", np.sum(Pvals,axis = 1))
-    idx_ = np.argmax(Pvals, axis = 0)
-    for x in range(N):
-        #idx_ = np.argmax(Pvals, axis = 0)
-        Pvals[x,:] = 0
-        Pvals[x,idx_[x]] = 1
+    # idx_ = np.argmax(Pvals, axis = 0)
+    # for x in range(N):
+    #     #idx_ = np.argmax(Pvals, axis = 0)
+    #     Pvals[x,:] = 0
+    #     Pvals[x,idx_[x]] = 1
         
     #print ("Pvals:", Pvals)
     #print ("Pvals shape:",np.sum(Pvals,axis = 0))
     #print ("Pvals sums;", np.sum(Pvals,axis = 1))
-    assert np.sum(Pvals,axis = 0).all() == np.ones((N,1)).all()
-    assert np.sum(Pvals,axis = 1).all() == np.ones((N,1)).all()
+    # assert np.sum(Pvals,axis = 0).all() == np.ones((N,1)).all()
+    # assert np.sum(Pvals,axis = 1).all() == np.ones((N,1)).all()
     return dcg, Pvals
     '''
     start = time.time()

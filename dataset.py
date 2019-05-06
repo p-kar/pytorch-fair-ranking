@@ -218,12 +218,13 @@ def rank_collate_func(batches):
     Calculates the ranking for the batch without the
     fairness constraint
     """
-    #print ("Using rank_collate")
     batch = [item for b in batches for item in b]
-    #print (len(batch))#.shape)
+    batch_size = len(batch)
     ret_dict = default_collate(batch)
     _, order = torch.sort(ret_dict['score'], descending=True)
     ret_dict['order'] = order
+    ret_dict['PIJ'] = torch.triu(torch.ones(batch_size, batch_size), diagonal=1)[order,:][:,order]
+
     return ret_dict
 
 def rank_lp_func(batches):
@@ -241,11 +242,21 @@ def rank_lp_func(batches):
     Gr_1_ = np.where(Gr == -1)
     scores = ret_dict['score'].numpy()
     Gr = Gr.numpy()
-    dcg, result_per = lp_solver_func(scores,Gr,constraint)
-    order = np.argmax(result_per,axis=0 ) #argmax across column for position id
+    dcg, P = lp_solver_func(scores,Gr,constraint)
+    order = np.argmax(P,axis=0 ) #argmax across column for position id
     #print (order)
     #_, order_ = torch.sort(ret_dict['score'], descending=True)
     #print (order_)
     #print (order - order_)
     ret_dict['order'] = torch.from_numpy(order).long()
+
+    T = np.triu(np.ones(P.shape), k=1)
+    # S - Sij -> probability of doc i after pos j
+    S = np.matmul(T, P.transpose()).transpose()
+    # PP - pair preference matrix probability, PPij -> probability of doc i occurring before doc j
+    PP = np.matmul(P, S.transpose())
+    # Pairwise positioning matrix PIJ_{ij} -> denotes if doc i should be ranked higher than doc j
+    PIJ = (PP > PP.transpose()).astype(np.float64)
+    ret_dict['PIJ'] = torch.from_numpy(PIJ)
+
     return ret_dict

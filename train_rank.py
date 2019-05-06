@@ -28,9 +28,10 @@ device = torch.device("cuda" if use_cuda else "cpu")
 def run_iter(opts, data, model):
     s, s_len = data['sent'].to(device), data['sent_len'].to(device)
     genres, order = data['genre'].to(device), data['order'].to(device)
+    PIJ = data['PIJ'].float().to(device)
     scores = data['score'].to(device)
     
-    out, loss = model.train_forward(s, s_len, genres, order, scores)
+    out, loss = model.train_forward(s, s_len, genres, PIJ, order, scores)
     ndcg = calculate_ndcg(torch.sort(out, descending=True)[1], scores)
 
     return ndcg, loss

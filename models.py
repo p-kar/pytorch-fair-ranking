@@ -238,31 +238,32 @@ class RankNet(nn.Module):
         # b x 1
         return out
 
-    def train_forward(self, s, s_len, genres, gt_order, gt_scores):
+    def train_forward(self, s, s_len, genres, PIJ, gt_order, gt_scores):
         """
         Args:
             s: Tokenized sentence (b x L)
             s_len: Sentence length (b)
             genres: One hot encoding for the genre (b x num_genres)
+            PIJ: Pairwise positioning matrix PIJ_{ij} -> denotes if doc i should be ranked higher than doc j
             gt_order: Ground truth ranking order (b)
-            gt_scores: Ground truth relevance scores, only required for LambdaRank (b)
+            gt_scores: Ground truth relevance scores (b)
         Output:
             out: Ranking scores (b)
             loss: Ranknet loss
         """
         out = self.forward(s, s_len, genres).view(-1)
         if self.loss_type == 'ranknet':
-            loss = self.ranknet_loss(out, gt_order)
+            loss = self.ranknet_loss(out, PIJ)
         elif self.loss_type == 'lambdarank':
-            loss = self.lambdarank_loss(out, gt_order, gt_scores)
+            loss = self.lambdarank_loss(out, PIJ, gt_order, gt_scores)
 
         return out, loss
 
-    def ranknet_loss(self, scores, gt_order):
+    def ranknet_loss(self, scores, PIJ):
         """
         Args:
             scores: ranking scores (b)
-            gt_order: Ground truth ranking gt_order (b)
+            PIJ: Pairwise positioning matrix PIJ_{ij} -> denotes if doc i should be ranked higher than doc j
         Output:
             loss: RankNet loss
         """
@@ -277,9 +278,7 @@ class RankNet(nn.Module):
         # b x b
         d = s_i - s_j
         # b x b
-        P_ij = torch.triu(torch.ones(batch_size, batch_size), diagonal=1).to(device)[gt_order,:][:,gt_order]
-        # b x b
-        lambda_ij = torch.sigmoid(d) - P_ij
+        lambda_ij = torch.sigmoid(d) - PIJ
         # b x b
         lambda_i = lambda_ij.sum(dim=1) - lambda_ij.sum(dim=0)
         # b
@@ -287,10 +286,11 @@ class RankNet(nn.Module):
 
         return loss
 
-    def lambdarank_loss(self, scores, gt_order, gt_scores):
+    def lambdarank_loss(self, scores, PIJ, gt_order, gt_scores):
         """
         Args:
             scores: ranking scores (b)
+            PIJ: Pairwise positioning matrix PIJ_{ij} -> denotes if doc i should be ranked higher than doc j
             gt_order: Ground truth ranking order (b)
             gt_scores: Ground truth relevance scores (b)
         Output:
@@ -307,8 +307,6 @@ class RankNet(nn.Module):
         # b x b
         d = s_i - s_j
         # b x b
-        P_ij = torch.triu(torch.ones(batch_size, batch_size), diagonal=1).to(device)[gt_order,:][:,gt_order]
-        # b x b
         _, pred_order = torch.sort(scores, descending=True)
         max_dcg = calculate_dcg(gt_order, gt_scores)
         dcg_ij_1 = scores.view(-1, 1) / torch.log2(2.0 + pred_order.float()).view(1, -1)
@@ -317,7 +315,7 @@ class RankNet(nn.Module):
         dcg_ii = scores / torch.log2(2.0 + pred_order.float())
         dcg_ii = dcg_ii.view(-1, 1) + dcg_ii.view(1, -1)
         delta_dcg = (dcg_ii - dcg_ij) / max_dcg
-        lambda_ij = (torch.sigmoid(d) - P_ij) * delta_dcg
+        lambda_ij = (torch.sigmoid(d) - PIJ) * delta_dcg
         # b x b
         lambda_i = lambda_ij.sum(dim=1) - lambda_ij.sum(dim=0)
         # b
