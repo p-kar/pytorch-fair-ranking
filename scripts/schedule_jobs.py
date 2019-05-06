@@ -14,6 +14,7 @@ mapping_dict = {
     # Algorithm hyperparameters
     '__CODE_ROOT__': '/scratch/cluster/pkar/pytorch-fair-ranking',
     '__MODE__': 'train_sentiment',
+    '__CONSTRAINT__': 'True',
     '__DATA_DIR__': '/scratch/cluster/pkar/pytorch-fair-ranking/data',
     '__NWORKERS__': '4',
     '__BSIZE__': '64',
