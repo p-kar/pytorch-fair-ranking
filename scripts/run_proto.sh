@@ -4,6 +4,7 @@ code_root=__CODE_ROOT__
 python -u $code_root/driver.py \
 	--mode __MODE__ \
 	--data_dir __DATA_DIR__ \
+        --constraint __CONSTRAINT__ \
 	--nworkers __NWORKERS__ \
 	--bsize __BSIZE__ \
 	--shuffle __SHUFFLE__ \
