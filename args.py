@@ -13,17 +13,20 @@ def get_args():
     # general
     parser.add_argument('--mode', default='train_sentiment', type=str, help='mode of the python script')
 
+   # constraint
+    parser.add_argument('--constraint',default= 'True', type=str2bool, help='set for fair ranking')
+
     # DataLoader
     parser.add_argument('--data_dir', default='./data', type=str, help='root directory of the dataset')
-    parser.add_argument('--nworkers', default=4, type=int, help='number of data loading workers')
-    parser.add_argument('--bsize', default=64, type=int, help='mini-batch size')
+    parser.add_argument('--nworkers', default= 4, type=int, help='number of data loading workers')
+    parser.add_argument('--bsize', default=32, type=int, help='mini-batch size')
     parser.add_argument('--shuffle', default='True', type=str2bool, help='shuffle the data?')
 
     # Model Parameters
     parser.add_argument('--enc_arch', default='bilstm', type=str, help='sentence encoder arch [bilstm | sse]')
     parser.add_argument('--maxlen', default=60, type=int, help='max length of the sentence')
     parser.add_argument('--dropout_p', default=0.1, type=float, help='dropout probability')
-    parser.add_argument('--hidden_size', default=200, type=int, help='hidden layer size')
+    parser.add_argument('--hidden_size', default=100, type=int, help='hidden layer size')
     parser.add_argument('--pretrained_base', default=None, type=str, help='Path to the pretrained sentiment analysis model')
     parser.add_argument('--loss_type', default='ranknet', type=str, help='Ranking loss to use')
 
