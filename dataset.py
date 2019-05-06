@@ -218,6 +218,7 @@ def rank_collate_func(batches):
     Calculates the ranking for the batch without the
     fairness constraint
     """
+    #print ("Using rank_collate")
     batch = [item for b in batches for item in b]
     #print (len(batch))#.shape)
     ret_dict = default_collate(batch)
@@ -229,6 +230,7 @@ def rank_lp_func(batches):
     """
     Calculates rank based on the lp constraints
     """
+    #print ("Using rank_lp")
     constraint = 'DemoParity'
     batch = [item for b in batches for item in b]
     ret_dict = default_collate(batch)
@@ -237,13 +239,13 @@ def rank_lp_func(batches):
     Gr[Gr == 0] = -1
     Gr_1 = np.where(Gr == 1)
     Gr_1_ = np.where(Gr == -1)
-    #print("genre 1:", Gr_1)
-    #print("genre -1:", Gr_1_)
     scores = ret_dict['score'].numpy()
-    #print (scores.shape)
     Gr = Gr.numpy()
-    dcg, result_per, result_coeff, per_count = lp_solver_func(scores,Gr,constraint)
-    #print (dcg, result_per, result_coeff, per_count)
-    _, order = torch.sort(ret_dict['score'], descending=True)
-    ret_dict['order'] = order
+    dcg, result_per = lp_solver_func(scores,Gr,constraint)
+    order = np.argmax(result_per,axis=0 ) #argmax across column for position id
+    #print (order)
+    #_, order_ = torch.sort(ret_dict['score'], descending=True)
+    #print (order_)
+    #print (order - order_)
+    ret_dict['order'] = torch.from_numpy(order).long()
     return ret_dict
