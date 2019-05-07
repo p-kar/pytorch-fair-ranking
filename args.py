@@ -29,7 +29,7 @@ def get_args():
     parser.add_argument('--loss_type', default='ranknet', type=str, help='Ranking loss to use')
 
    # Ranking constraint
-    parser.add_argument('--constraint',default= True, type=str2bool, help='set True for fair ranking')
+    parser.add_argument('--constraint',default='DemoParity' , type=str, help='set to DemoParity, DispTreat, DispImpact  or for fair ranking')
 
     # Optimization Parameters
     parser.add_argument('--optim', default='adam', type=str, help='optimizer type')

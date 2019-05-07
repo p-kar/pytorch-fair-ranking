@@ -294,12 +294,12 @@ def rank_collate_func(batches):
 
     return ret_dict
 
-def rank_lp_func(batches):
+def rank_lp_func(constraint, batches):
     """
     Calculates rank based on the lp constraints
     """
     #print ("Using rank_lp")
-    constraint = 'DemoParity'
+    #constraint = 'DemoParity'
     batch = [item for b in batches for item in b]
     ret_dict = default_collate(batch)
     genre = ret_dict['genre']
