@@ -235,19 +235,10 @@ def rank_lp_func(constraint, batches):
     #constraint = 'DemoParity'
     batch = [item for b in batches for item in b]
     ret_dict = default_collate(batch)
-    genre = ret_dict['genre']
-    Gr = genre[:,0]
-    Gr[Gr == 0] = -1
-    Gr_1 = np.where(Gr == 1)
-    Gr_1_ = np.where(Gr == -1)
+    genres = ret_dict['genre'].max(dim=1)[1].numpy()
     scores = ret_dict['score'].numpy()
-    Gr = Gr.numpy()
-    dcg, P = lp_solver_func(scores,Gr,constraint)
+    dcg, P = lp_solver_func(scores, genres, constraint)
     order = np.argmax(P,axis=0 ) #argmax across column for position id
-    #print (order)
-    #_, order_ = torch.sort(ret_dict['score'], descending=True)
-    #print (order_)
-    #print (order - order_)
     ret_dict['order'] = torch.from_numpy(order).long()
 
     T = np.triu(np.ones(P.shape), k=1)
