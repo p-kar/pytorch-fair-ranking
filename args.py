@@ -27,8 +27,9 @@ def get_args():
     parser.add_argument('--pretrained_base', default=None, type=str, help='Path to the pretrained sentiment analysis model')
     parser.add_argument('--loss_type', default='ranknet', type=str, help='Ranking loss to use')
 
-   # Ranking constraint
-    parser.add_argument('--constraint',default='DemoParity' , type=str, help='set to DemoParity, DispTreat, DispImpact  or for fair ranking')
+    # Ranking constraint
+    parser.add_argument('--constraint',default='DemoParity' , type=str, help='set to DemoParity, DispTreat, DispImpact or none for fair ranking')
+    parser.add_argument('--metric', default='DP', type=str, help='ranking fairness evaluation metric')
 
     # Optimization Parameters
     parser.add_argument('--optim', default='adam', type=str, help='optimizer type')
