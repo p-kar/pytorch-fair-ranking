@@ -4,6 +4,7 @@ import pdb
 import json
 import numpy as np
 import random
+from collections import Counter
 from nltk import word_tokenize
 
 import torch
@@ -61,10 +62,11 @@ class RottenTomatoesReviewDataset(Dataset):
 
         return {'s': s, 's_len': s_len, 'label': label, 'raw_s': raw_s}
 
-def read_movie_data(fname, genres):
+def read_movie_data_div_by_genres(fname, genres):
     """
     Args:
         fname: file containing the movie data with reviews
+        genres: list containing distinct movie genres
     Output:
         movie_dict: Dictionary containing movies segregated based
             on genres and critic rating ('rotten' and 'fresh')
@@ -114,18 +116,83 @@ def read_movie_data(fname, genres):
 
     return movie_dict
 
+def read_movie_data_div_by_studio(fname, thresh=4):
+    """
+    Args:
+        fname: file containing the movie data with reviews
+    Output:
+        movie_dict: Dictionary containing movies segregated based
+            on studio size and critic rating ('rotten' and 'fresh')
+    """
+    with open(fname, 'r') as fp:
+        content = json.load(fp)
+    genres = ['big_studio', 'small_studio']
+    tot_num_movies = len(content)
+    content = [movie for movie in content if 'Studio:' in movie['movie_metadata'].keys()]
+    pick_first = lambda x: x[0] if isinstance(x, list) else x
+    studios = [pick_first(movie['movie_metadata']['Studio:']) for movie in content]
+    big_studios = set([s[0] for s in Counter(studios).most_common() if s[1] >= thresh])
+
+    movie_dict = {k: {'fresh': [], 'rotten': []} for k in genres}
+
+    for movie in content:
+        if len(movie['reviews']) == 0:
+            continue
+        if movie['tomatometer'] == 'unknown':
+            continue
+        assert 'Studio:' in movie['movie_metadata'].keys()
+
+        studio = pick_first(movie['movie_metadata']['Studio:'])
+        movie_genre = 'big_studio' if studio in big_studios else 'small_studio'
+        tomatometer = float(movie['tomatometer'][:-1]) / 100.0
+        rating = movie['critic_rating']
+
+        movie_item = {
+            'url': movie['url'],
+            'movie_name': movie['movie_name'],
+            'movie_genre': movie_genre,
+            'rating': rating,
+            'tomatometer': tomatometer,
+            'reviews': [r for r in movie['reviews'] if r['review_flag'] == rating]
+        }
+        if len(movie_item['reviews']) == 0:
+            continue
+        movie_dict[movie_genre][rating].append(movie_item)
+
+    counts = {g: {k: len(movie_dict[g][k]) for k in movie_dict[g].keys()} for g in genres}
+    genre_counts = {g: sum([counts[g][k] for k in counts[g].keys()]) for g in genres}
+    movie_count = sum([genre_counts[g] for g in genres])
+    
+    print('Dropped {} movies'.format(tot_num_movies - movie_count))
+    print('Found {} movies'.format(movie_count))
+    print('Genre counts:')
+    for g in genres:
+        print('{:>10}: {}'.format(g, genre_counts[g]))
+
+    return movie_dict
+
 class RottenTomatoesRankingDataset(Dataset):
     """RottenTomatoes movie ranking dataset"""
 
-    def __init__(self, root, split, glove_loader, maxlen, genres=['Drama', 'Horror']):
+    def __init__(self, root, split, glove_loader, maxlen, div_by='genre', genres=['Drama', 'Horror']):
+        """
+        If div_by flag is set to 'studio', the genres argument is ignored
+        """
 
         self.word_to_index = glove_loader.word_to_index
         self.split = split
         self.glove_vec_size = glove_loader.embed_size
         self.maxlen = maxlen
-        self.genres = genres
         self.data_file = os.path.join(root, 'rt_data.json')
-        self.data = read_movie_data(self.data_file, genres)
+        self.div_by = div_by
+        if self.div_by == 'genre':
+            self.genres = genres
+            self.data = read_movie_data_div_by_genres(self.data_file, genres)
+        elif self.div_by == 'studio':
+            self.genres = ['big_studio', 'small_studio']
+            self.data = read_movie_data_div_by_studio(self.data_file)
+        else:
+            raise NotImplementedError('unknown div_by type')
         self._split_movie_data()
         self.data_size = self._data_size()
         self.shuffle()

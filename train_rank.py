@@ -72,11 +72,11 @@ def train_rank(opts):
     else:
             func = rank_collate_func 
     glove_loader = GloveLoader(os.path.join(opts.data_dir, 'glove', opts.glove_emb_file))
-    train_dataset = RottenTomatoesRankingDataset(opts.data_dir, 'train', glove_loader, opts.maxlen)
+    train_dataset = RottenTomatoesRankingDataset(opts.data_dir, 'train', glove_loader, opts.maxlen, opts.div_by)
     train_loader = DataLoader(train_dataset, batch_size=opts.bsize, sampler=RankSampler(train_dataset), \
         collate_fn=func, num_workers=opts.nworkers)
 
-    valid_dataset = RottenTomatoesRankingDataset(opts.data_dir, 'val', glove_loader, opts.maxlen)
+    valid_dataset = RottenTomatoesRankingDataset(opts.data_dir, 'val', glove_loader, opts.maxlen, opts.div_by)
     valid_loader = DataLoader(valid_dataset, batch_size=opts.bsize, sampler=RankSampler(valid_dataset), \
         collate_fn=func, num_workers=opts.nworkers)
     model = RankNet(opts.hidden_size, opts.dropout_p, glove_loader, opts.enc_arch, \
