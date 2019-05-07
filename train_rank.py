@@ -67,8 +67,8 @@ def evaluate(opts, model, loader):
 
 
 def train_rank(opts):
-    if opts.constraint == True:
-            func = rank_lp_func
+    if opts.constraint == 'DemoParity' or opts.constraint == 'DispTreat' or opts.constrain == 'DispImpact':
+            func = lambda x: rank_lp_func(opts.constraint, x)
     else:
             func = rank_collate_func 
     glove_loader = GloveLoader(os.path.join(opts.data_dir, 'glove', opts.glove_emb_file))
