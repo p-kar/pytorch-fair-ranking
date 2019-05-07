@@ -21,7 +21,9 @@ from utils import *
 from models import RankNet
 from logger import TensorboardXLogger
 from dataset import RankSampler, RottenTomatoesRankingDataset, rank_collate_func,rank_lp_func
+from calc_fairness import calc_fairness_func
 
+import pdb
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
@@ -32,15 +34,18 @@ def run_iter(opts, data, model):
     scores = data['score'].to(device)
     
     out, loss = model.train_forward(s, s_len, genres, PIJ, order, scores)
+    sort_order = torch.sort(out, descending=True)[1]
     ndcg = calculate_ndcg(torch.sort(out, descending=True)[1], scores)
+    fscore = calc_fairness_func(sort_order, scores, genres, opts.metric)
 
-    return ndcg, loss
+    return ndcg, fscore, loss
 
 def evaluate(opts, model, loader):
     model.eval()
 
     time_start = time.time()
     val_loss = 0.0
+    val_fscore = 0.0
     val_ndcg = 0.0
     val_rand_ndcg = 0.0
     num_batches = 0.0
@@ -48,22 +53,24 @@ def evaluate(opts, model, loader):
     with torch.no_grad():
         for batch_idx, data in enumerate(loader):
 
-            ndcg, loss = run_iter(opts, data, model)
+            ndcg, fscore, loss = run_iter(opts, data, model)
             scores = data['score'].to(device)
             rand_ndcg = calculate_ndcg(torch.randperm(scores.shape[0]).to(device), scores)
             val_loss += loss.data.cpu().item()
             val_ndcg += ndcg
+            val_fscore += fscore.data.cpu().item()
             val_rand_ndcg += rand_ndcg
             num_batches += 1
 
     avg_valid_loss = val_loss / num_batches
     avg_valid_ndcg = val_ndcg / num_batches
+    avg_valid_fscore = val_fscore / num_batches
     avg_valid_rand_ndcg = val_rand_ndcg / num_batches
     time_taken = time.time() - time_start
 
     print('Validation Rand NDCG: {:.5f}'.format(avg_valid_rand_ndcg.data.cpu().item()))
 
-    return avg_valid_loss, avg_valid_ndcg, time_taken
+    return avg_valid_loss, avg_valid_ndcg, avg_valid_fscore, time_taken
 
 
 def train_rank(opts):
@@ -108,7 +115,7 @@ def train_rank(opts):
 
     # for logging
     logger = TensorboardXLogger(opts.start_epoch, opts.log_iter, opts.log_dir)
-    logger.set(['NDCG', 'loss'])
+    logger.set(['NDCG', opts.metric, 'loss'])
     logger.n_iter = start_n_iter
 
     for epoch in range(opts.start_epoch, opts.epochs):
@@ -116,7 +123,7 @@ def train_rank(opts):
         logger.step()
 
         for batch_idx, data in enumerate(train_loader):
-            ndcg, loss = run_iter(opts, data, model)
+            ndcg, fscore, loss = run_iter(opts, data, model)
 
             # optimizer step
             optimizer.zero_grad()
@@ -124,11 +131,11 @@ def train_rank(opts):
             nn.utils.clip_grad_norm_(model.parameters(), opts.max_norm)
             optimizer.step()
 
-            logger.update(ndcg, loss)
+            logger.update(ndcg, fscore, loss)
 
-        val_loss, val_ndcg, time_taken = evaluate(opts, model, valid_loader)
+        val_loss, val_ndcg, val_fscore, time_taken = evaluate(opts, model, valid_loader)
         # log the validation losses
-        logger.log_valid(time_taken, val_ndcg, val_loss)
+        logger.log_valid(time_taken, val_ndcg, val_fscore, val_loss)
         print ('')
 
         # Save the model to disk
