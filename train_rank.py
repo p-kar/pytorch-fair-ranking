@@ -67,7 +67,7 @@ def evaluate(opts, model, loader):
 
 
 def train_rank(opts):
-    if opts.constraint == 'DemoParity' or opts.constraint == 'DispTreat' or opts.constrain == 'DispImpact':
+    if opts.constraint == 'DemoParity' or opts.constraint == 'DispTreat' or opts.constraint == 'DispImpact':
             func = lambda x: rank_lp_func(opts.constraint, x)
     else:
             func = rank_collate_func 
