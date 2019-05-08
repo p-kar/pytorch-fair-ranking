@@ -18,6 +18,7 @@ def get_args():
     parser.add_argument('--nworkers', default= 4, type=int, help='number of data loading workers')
     parser.add_argument('--bsize', default=32, type=int, help='mini-batch size')
     parser.add_argument('--shuffle', default='True', type=str2bool, help='shuffle the data?')
+    parser.add_argument('--div_by', default='genre', type=str, help='decides how the movies are split into groups [genre | studio]')
 
     # Model Parameters
     parser.add_argument('--enc_arch', default='bilstm', type=str, help='sentence encoder arch [bilstm | sse]')

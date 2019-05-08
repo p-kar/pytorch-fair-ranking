@@ -5,15 +5,18 @@ import pulp
 from pulp import *
 import timeit
 import torch
+import pdb
 
 def calc_fairness_func(order, gt_scores, genres, metric):
 
     N = gt_scores.shape[0]
-    v = torch.log(torch.tensor(2.0)) / torch.log(torch.arange(N) + 2.0)
-    v = v[order]
+    v = torch.log(torch.tensor(2.0)) / torch.log(torch.arange(N).float() + 2.0)
+    v = v[order].to(order.device)
+    gt_scores = gt_scores.float().to(order.device)
 
-    pos_indices = torch.eq(genre, 0).nonzero().squeeze(1)
-    neg_indices = torch.eq(genre, 1).nonzero().squeeze(1)
+    genres = torch.max(genres, dim=1)[1]
+    pos_indices = torch.eq(genres, 0).nonzero().squeeze(1)
+    neg_indices = torch.eq(genres, 1).nonzero().squeeze(1)
     G0_exp = v[pos_indices].mean()
     G1_exp = v[neg_indices].mean()
 

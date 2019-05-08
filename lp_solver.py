@@ -6,7 +6,6 @@ from pulp import *
 # from birkhoff import birkhoff_von_neumann_decomposition
 import timeit
 #import torch
-import pdb
 
 def lp_solver_func(u,Gr,constraint):
 
@@ -21,7 +20,7 @@ def lp_solver_func(u,Gr,constraint):
     else:
         f = Gr.astype(float)
         pos_indices = np.where(Gr == 1)
-        neg_indices = np.where(Gr == -1)
+        neg_indices = np.where(Gr == 0)
         #Group1 Group2 sum
         G1_sum = u[pos_indices].sum()
         G2_sum = u[neg_indices].sum()
