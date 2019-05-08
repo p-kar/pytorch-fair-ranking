@@ -16,9 +16,13 @@ def lp_solver_func(u,Gr,constraint):
 
     if constraint == 'DemoParity':
         #f = np.array([1.0, 1.0, 1.0, -1.0, -1.0, -1.0]) / 10
-        f = Gr/(N/2)
+        f = Gr#/(N/2)
+        f[f == 0] = -1
+        f = f/(N/2)
+        
     else:
         f = Gr.astype(float)
+        f[f == 0] = -1
         pos_indices = np.where(Gr == 1)
         neg_indices = np.where(Gr == 0)
         #Group1 Group2 sum
